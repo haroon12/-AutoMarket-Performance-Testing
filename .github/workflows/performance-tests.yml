@@ -29,38 +29,75 @@ jobs:
       - name: Install k6
         uses: grafana/setup-k6-action@v1
 
-      - name: Run Homepage Smoke Test
-        if: inputs.test_type == 'smoke'
-        run: k6 run Scripts/homepage.js
-        env:
-          BASE_URL: https://www.pakwheels.com
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
 
-      - name: Run Homepage Load Test
-        if: inputs.test_type == 'load'
-        run: k6 run Scripts/homepage-load.js
+      - name: Run Selected Performance Test and Generate HTML Report
         env:
           BASE_URL: https://www.pakwheels.com
+          TEST_TYPE: ${{ inputs.test_type }}
+        shell: bash
+        run: |
+          mkdir -p Reports
 
-      - name: Run Homepage Stress Test
-        if: inputs.test_type == 'stress'
-        run: k6 run Scripts/homepage-stress.js
-        env:
-          BASE_URL: https://www.pakwheels.com
+          case "$TEST_TYPE" in
+            smoke)
+              SCRIPT="Scripts/homepage.js"
+              REPORT="homepage-smoke"
+              ;;
+            load)
+              SCRIPT="Scripts/homepage-load.js"
+              REPORT="homepage-load"
+              ;;
+            stress)
+              SCRIPT="Scripts/homepage-stress.js"
+              REPORT="homepage-stress"
+              ;;
+            soak)
+              SCRIPT="Scripts/homepage-soak.js"
+              REPORT="homepage-soak"
+              ;;
+            breakpoint)
+              SCRIPT="Scripts/homepage-breakpoint.js"
+              REPORT="homepage-breakpoint"
+              ;;
+            recovery)
+              SCRIPT="Scripts/homepage-recovery.js"
+              REPORT="homepage-recovery"
+              ;;
+            *)
+              echo "Invalid test selection"
+              exit 1
+              ;;
+          esac
 
-      - name: Run Homepage Soak Test
-        if: inputs.test_type == 'soak'
-        run: k6 run Scripts/homepage-soak.js
-        env:
-          BASE_URL: https://www.pakwheels.com
+          SUMMARY_FILE="Reports/${REPORT}-summary.json"
+          HTML_FILE="Reports/${REPORT}-report.html"
 
-      - name: Run Homepage Breakpoint Test
-        if: inputs.test_type == 'breakpoint'
-        run: k6 run Scripts/homepage-breakpoint.js
-        env:
-          BASE_URL: https://www.pakwheels.com
+          set +e
+          k6 run --summary-export "$SUMMARY_FILE" "$SCRIPT"
+          K6_EXIT_CODE=$?
+          set -e
 
-      - name: Run Homepage Recovery Test
-        if: inputs.test_type == 'recovery'
-        run: k6 run Scripts/homepage-recovery.js
-        env:
-          BASE_URL: https://www.pakwheels.com
+          if [ -f "$SUMMARY_FILE" ]; then
+            python Scripts/generate-html-report.py \
+              --input "$SUMMARY_FILE" \
+              --output "$HTML_FILE" \
+              --test-name "$REPORT"
+          else
+            echo "k6 summary file was not generated."
+            exit 1
+          fi
+
+          exit "$K6_EXIT_CODE"
+
+      - name: Upload HTML Performance Report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: AutoMarket-${{ inputs.test_type }}-HTML-Report
+          path: Reports/*-report.html
+          if-no-files-found: warn
+          retention-days: 30
