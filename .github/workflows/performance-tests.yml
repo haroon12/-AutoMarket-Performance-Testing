@@ -3,10 +3,23 @@ name: AutoMarket Performance Tests
 
 on:
   workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Select Performance Test'
+        required: true
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+          - soak
+          - breakpoint
+          - recovery
 
 jobs:
-  homepage-smoke-test:
-    name: Homepage Smoke Test
+  performance-test:
+    name: Run Homepage ${{ inputs.test_type }} Test
     runs-on: ubuntu-latest
 
     steps:
@@ -17,6 +30,37 @@ jobs:
         uses: grafana/setup-k6-action@v1
 
       - name: Run Homepage Smoke Test
+        if: inputs.test_type == 'smoke'
         run: k6 run Scripts/homepage.js
+        env:
+          BASE_URL: https://www.pakwheels.com
+
+      - name: Run Homepage Load Test
+        if: inputs.test_type == 'load'
+        run: k6 run Scripts/homepage-load.js
+        env:
+          BASE_URL: https://www.pakwheels.com
+
+      - name: Run Homepage Stress Test
+        if: inputs.test_type == 'stress'
+        run: k6 run Scripts/homepage-stress.js
+        env:
+          BASE_URL: https://www.pakwheels.com
+
+      - name: Run Homepage Soak Test
+        if: inputs.test_type == 'soak'
+        run: k6 run Scripts/homepage-soak.js
+        env:
+          BASE_URL: https://www.pakwheels.com
+
+      - name: Run Homepage Breakpoint Test
+        if: inputs.test_type == 'breakpoint'
+        run: k6 run Scripts/homepage-breakpoint.js
+        env:
+          BASE_URL: https://www.pakwheels.com
+
+      - name: Run Homepage Recovery Test
+        if: inputs.test_type == 'recovery'
+        run: k6 run Scripts/homepage-recovery.js
         env:
           BASE_URL: https://www.pakwheels.com
