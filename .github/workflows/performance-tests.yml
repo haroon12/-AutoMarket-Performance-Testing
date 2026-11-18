@@ -1,0 +1,22 @@
+
+name: AutoMarket Performance Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  homepage-smoke-test:
+    name: Homepage Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run Homepage Smoke Test
+        run: k6 run Scripts/homepage.js
+        env:
+          BASE_URL: https://www.pakwheels.com
